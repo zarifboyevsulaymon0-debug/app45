@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Visualizer Pro</title>
+    <style>
+        :root {
+            --bg: #050505;
+            --accent: #00f2ff;
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: white;
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            text-align: center;
+            z-index: 10;
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        .controls {
+            position: relative;
+            z-index: 10;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        input[type="file"] {
+            margin-bottom: 20px;
+        }
+
+        #audio-info {
+            margin-top: 10px;
+            font-size: 14px;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .title {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            background: linear-gradient(to right, #00f2ff, #0062ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+    </style>
+</head>
+<body>
+
+<canvas id="visualizer"></canvas>
+
+<div class="container">
+    <div class="controls">
+        <div class="title">Audio Visualizer</div>
+        <input type="file" id="audioFile" accept="audio/*">
+        <br>
+        <audio id="audioSource" controls style="display: none;"></audio>
+        <div id="audio-info">Musiqa tanlang...</div>
+    </div>
+</div>
+
+<script>
+    const audioFile = document.getElementById('audioFile');
+    const audioSource = document.getElementById('audioSource');
+    const canvas = document.getElementById('visualizer');
+    const ctx = canvas.getContext('2d');
+    const info = document.getElementById('audio-info');
+
+    let audioCtx;
+    let analyzer;
+    let source;
+
+    audioFile.onchange = function() {
+        const files = this.files;
+        if (files.length === 0) return;
+
+        const url = URL.createObjectURL(files[0]);
+        audioSource.src = url;
+        audioSource.play();
+        info.innerText = files[0].name;
+
+        setupVisualizer();
+    };
+
+    function setupVisualizer() {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            analyzer = audioCtx.createAnalyser();
+            source = audioCtx.createMediaElementSource(audioSource);
+            source.connect(analyzer);
+            analyzer.connect(audioCtx.destination);
+        }
+
+        analyzer.fftSize = 256; // To'lqinlar soni
+        const bufferLength = analyzer.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        function draw() {
+            requestAnimationFrame(draw);
+            analyzer.getByteFrequencyData(dataArray);
+
+            ctx.fillStyle = 'rgba(5, 5, 5, 0.2)'; // To'lqin ortida iz qoldirish
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const barWidth = (canvas.width / bufferLength) * 2.5;
+            let barHeight;
+            let x = 0;
+
+            for (let i = 0; i < bufferLength; i++) {
+                barHeight = dataArray[i] * 1.5;
+
+                // Dinamik ranglar
+                const r = barHeight + (25 * (i / bufferLength));
+                const g = 250 * (i / bufferLength);
+                const b = 50;
+
+                ctx.fillStyle = `rgb(${r},${g},${b})`;
+                ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+
+                x += barWidth + 1;
+            }
+        }
+        draw();
+    }
+
+    window.onresize = () => {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    };
+</script>
+
+</body>
+</html>
